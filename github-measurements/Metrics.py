@@ -3,7 +3,7 @@ from sklearn.metrics import r2_score
 from scipy.spatial.distance import euclidean
 import statsmodels.api as sm
 import fastdtw as fdtw
-
+import traceback
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -369,9 +369,14 @@ def get_metric_scores(ground_truth, simulation, measurement, metric, measurement
 
     """
     print("Calculating {} for {}".format(metric.__name__, measurement.__name__))
-    measurement_on_gt = measurement(ground_truth, **measurement_kwargs)
-    measurement_on_sim = measurement(simulation, **measurement_kwargs)
-    return measurement_on_gt, measurement_on_sim, metric(measurement_on_gt, measurement_on_sim, **metric_kwargs)
+    try:
+        measurement_on_gt = measurement(ground_truth, **measurement_kwargs)
+        measurement_on_sim = measurement(simulation, **measurement_kwargs)
+        return measurement_on_gt, measurement_on_sim, metric(measurement_on_gt, measurement_on_sim, **metric_kwargs)
+    except Exception as e:
+        print('ERROR> Metrics score computation failed. '+str(e))
+        traceback.print_exc()
+    return None,None,None
 
 
 def main():
@@ -386,48 +391,53 @@ def main():
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print("Absolute difference")
+    print("--> Absolute difference")
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getGiniCoef, absolute_difference)
-    print('Gini:', gt, sim, metric)
+    if metric:
+     print('Gini:', gt, sim, metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print('KS test')
+    print('--> KS test')
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, ks_test,
                                         measurement_kwargs={'k': 1000})
-    print('User Popularity', metric)
+    if metric:
+        print('User Popularity', metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print('JS divergence')
+    print('--> JS divergence')
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, js_divergence,
                                         measurement_kwargs={'k': 1000})
-    print('User Popularity', metric)
+    if metric:
+        print('User Popularity', metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print("RMSE")
+    print("--> RMSE")
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, rmse,
                                         measurement_kwargs={'k': 1000}, metric_kwargs={'join': 'inner'})
 
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print("R2")
+    print("--> R2")
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, r2,
                                         measurement_kwargs={'k': 1000}, metric_kwargs={'join': 'inner'})
-    print(metric)
+    if metric:
+        print(metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()
 
-    print("Pearson")
+    print("--> Pearson")
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, pearson,
                                         measurement_kwargs={'k': 1000}, metric_kwargs={'join': 'inner'})
-    print(metric)
+    if metric:
+        print(metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()
@@ -436,12 +446,14 @@ def main():
     list1 = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     list2 = ['0', '1', '3', '2', '6', '5', '9', '7']
 
-    print('RBO')
+    print('--> RBO')
     print(rbo_score(list1, list2, p=0.9))
 
     gt, sim, metric = get_metric_scores(ground_truth, simulation, getUserPopularity, rbo_score,
                                         measurement_kwargs={'k': 1000}, metric_kwargs={'p': 0.9})
-    print(metric)
+
+    if metric:
+        print(metric)
 
     ground_truth = df1.copy()
     simulation = df2.copy()

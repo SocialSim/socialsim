@@ -263,7 +263,7 @@ def prefilter(data, filters):
 
     """
 
-    data.columns = ['time', 'event', 'user', 'repo']
+    data.columns = ['idx', 'time', 'event', 'user', 'repo']
     for field, values in filters.items():
         data = data[data[field].isin(values)]
     return data
@@ -390,15 +390,27 @@ def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, user
         results[measurement_name] = metric_results
     return results
 
+def load_data():
+    df = pd.read_csv('data/small_subset.csv')
+    df = df.reset_index()
+
+    df1 = df.sample(frac=0.6, replace=False)
+    df2 = df.sample(frac=0.6, replace=False)
+
+    print(df1)
+
+    ground_truth = df1.copy()
+    simulation = df2.copy()
+    return ground_truth, simulation
 
 def main():
 
     ###READ IN ground_truth and simulation here
     #Data should be in 4-column format: time, event, user, repo
-    #ground_truth, simulation = load_data()
+    ground_truth, simulation = load_data()
 
-    ground_truth.columns = ['time','event','user','repo']
-    simulation.columns = ['time','event','user','repo']
+    ground_truth.columns = ['idx','time','event','user','repo']
+    simulation.columns = ['idx','time','event','user','repo']
 
 
     #run individual metric

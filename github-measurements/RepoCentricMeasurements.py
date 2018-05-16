@@ -41,7 +41,7 @@ def getRepoDiffusionDelay(df,eventType=None,unit='s',metadata_file = ''):
         repo_metadata = repo_metadata[['full_name_h','created_at']]
         repo_metadata['created_at'] = pd.to_datetime(repo_metadata['created_at'])
 
-    df.columns = ['time','event','user','repo']
+    df.columns = ['idx', 'time','event','user','repo']
 
     #Checks for specific event type, uses both Fork and WatchEvent
     if eventType is not None:
@@ -78,7 +78,7 @@ Input: df - Dataframe of all data for a repo
 '''
 def getRepoGrowth(df, cumSum=False):
 
-    df.columns = ['time', 'event','user', 'repo']
+    df.columns = ['idx', 'time', 'event','user', 'repo']
     df['id'] = df.index
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values(by='time')
@@ -133,7 +133,7 @@ Output - Time from creation to "death" (default is days)
 '''
 def getLifetimeTime(df):
 
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values(by='time')
     p = pd.DataFrame(df.iloc[[0, -1]])
@@ -153,7 +153,7 @@ Input: df - Data frame can be repo or non-repo centric
 
 '''
 def getContributions(df,dropDup=True,cumulative=False):
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values(by='time')
 
@@ -202,7 +202,7 @@ repo only having a single event.
 '''
 def getAvgTimebwEvents(df,repos=None, nCPU=1):
     # Standardize Time and Sort Dataframe
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
 
     if repos == None:
@@ -245,7 +245,7 @@ Output: Dataframe with the distribution of events by weekday. Columns: Event, We
 '''
 def getDistributionOfEvents(df,nCPU = 1,weekday=False):
 
-    df.columns = ['time','event','user','repo']
+    df.columns = ['idx', 'time','event','user','repo']
     df['id'] = df.index
     df_split = np.array_split(df,nCPU)
     pool = Pool(nCPU)
@@ -306,7 +306,7 @@ Inputs: df - Data frame with data for all repos
 Outputs: Dataframe with the distribution of event type per repo. Columns are repo id and the count of that event.
 '''
 def getDistributionOfEventsByRepo(df,eventType='WatchEvent'):
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df = df[df.event == eventType]
     p = df[['repo', 'event']].groupby(['repo']).count()
     p = p.sort_values(by='event')
@@ -324,7 +324,7 @@ Inputs: df - Data frame with data for all repos
 Outputs: Dataframe with the top-k repos and their event counts. Columns are repo id and the count of that event.
 '''
 def getTopKRepos(df,k=100,eventType='WatchEvent'):
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df = df[df.event == eventType]
     p = df[['repo', 'event']].groupby(['repo']).count()
     p = p.sort_values(by='event',ascending=False)
@@ -344,7 +344,7 @@ Inputs: df - Data frame with the data for all repos
 Outputs: List of deltas for each repos lifetime.
 '''
 def getDisributionOverRepoLife(df):
-    df.columns = ['time','event','user', 'repo']
+    df.columns = ['idx', 'time','event','user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values(by='time')
     df_max = df[['repo', 'time']].groupby('repo').max()
@@ -375,7 +375,7 @@ Input: df - Data frame containing data can be any subset of data
 Output: g - gini coefficient
 '''
 def getGiniCoef(df, type='repo'):
-    df.columns = ['time', 'event' ,'user', 'repo']
+    df.columns = ['idx', 'time', 'event' ,'user', 'repo']
     df = df[['repo', 'user']].groupby([type]).count()
     df.columns = ['counts']
     df = df.reset_index()
@@ -402,7 +402,7 @@ Output: p - Palma Coefficient
         data - data frame that represents the event disparity
 '''
 def getPalmaCoef(df, type='repo'):
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df = df[['repo', 'user']].groupby([type]).count()
     df.columns = ['counts']
     df = df.reset_index()

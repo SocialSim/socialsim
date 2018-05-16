@@ -32,7 +32,7 @@ Output: A dataframe with the user id and the number of repos contributed to
 '''
 def getUserUniqueRepos(df,users=None):
     df = df.copy()
-    df.columns = ['time', 'event','user', 'repo']
+    df.columns = ['idx', 'time', 'event','user', 'repo']
     if users:
         df = df[df.user.isin(users)]
     df =df.groupby('user')
@@ -53,7 +53,7 @@ Output: A grouped dataframe of the users activity over time
 '''
 def getUserActivityTimeline(df, users=None,time_bin='1d',cumSum=False):
     df = df.copy()
-    df.columns = ['time', 'event','user', 'repo']
+    df.columns = ['idx', 'time', 'event','user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
     if users:
         df = df[df.user.isin(users)]
@@ -89,7 +89,7 @@ def getUserPopularity(df,k=10,metadata_file = ''):
         repo_metadata = repo_metadata[['full_name_h','owner.login_h']]
 
     df = df.copy()
-    df.columns = ['time', 'event','user', 'repo']
+    df.columns = ['idx', 'time', 'event','user', 'repo']
     df['value'] = 1
     
     repo_popularity = df[df['event'].isin(['ForkEvent','WatchEvent'])].groupby('repo')['value'].sum().reset_index()
@@ -119,7 +119,7 @@ Outputs: A list of average times for each user. Length should match number of re
 '''
 def getAvgTimebwEvents(df,users=None, nCPU=1):
     df = df.copy()
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['time'] = pd.to_datetime(df['time'])
 
     if users == None:
@@ -168,7 +168,7 @@ def getUserDiffusionDelay(df,unit='s',metadata_file = ''):
 
 
     df = df.copy()
-    df.columns = ['time','event','user','repo']
+    df.columns = ['idx', 'time','event','user','repo']
     df['value'] = df['time']
     df['value'] = pd.to_datetime(df['value'])
 
@@ -198,7 +198,7 @@ Output: The gini coefficient for the dataset
 '''
 def getGiniCoef(df):
     df = df.copy()
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['value'] = 1
     df = df.groupby('user')
     event_counts = df.value.sum()
@@ -223,7 +223,7 @@ Output: p - The palma coefficient for the dataset
 '''
 def getPalmaCoef(df):
     df = df.copy()
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     df['value'] = 1
     df = df.groupby('user')
     event_counts = df.value.sum()
@@ -260,7 +260,7 @@ Output: Dataframe with the user ids and number of events
 '''
 def getMostActiveUsers(df,k=10):
     df = df.copy()
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     dft = df
     dft['value'] = 1
     dft = df.groupby('user')
@@ -280,7 +280,7 @@ Output: List containing the event counts per user
 '''
 def getUserActivityDistribution(df,eventType=None):
     df = df.copy()
-    df.columns = ['time', 'event', 'user', 'repo']
+    df.columns = ['idx', 'time', 'event', 'user', 'repo']
     if eventType != None:
         df = df[df.event == eventType]
     df['value'] = 1
