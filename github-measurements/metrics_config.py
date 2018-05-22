@@ -1,9 +1,11 @@
 import pandas as pd
-from functools import partial, update_wrapper
 import Metrics
 import RepoCentricMeasurements
 import UserCentricMeasurements
-import pprint
+import math
+import json
+import argparse
+from functools import partial, update_wrapper
 from time import time
 
 def named_partial(func, *args, **kwargs):
@@ -16,9 +18,9 @@ def pretty_time(t):
     m, s = divmod(t, 60)
     h, m = divmod(m, 60)
     s = round(s) #Rounds seconds to the nearest whole number
-    h = str(h).rjust(2,'0') #convert to strings,
-    m = str(m).rjust(2,'0') #adding 0 if necessary to make 
-    s = str(s).rjust(2,'0') #each one two digits long
+    h = str(h).rjust(2,"0") #convert to strings,
+    m = str(m).rjust(2,"0") #adding 0 if necessary to make 
+    s = str(s).rjust(2,"0") #each one two digits long
     return "{}h{}m{}s".format(h,m,s)
 
 contribution_events = ["PullRequestEvent", "PushEvent", "IssuesEvent","IssueCommentEvent","PullRequestReviewComment","CommitCommentEvent","CreateEvent"]
@@ -28,7 +30,10 @@ measurement_params = {
     ### User Centric Measurements
 
     "user_unique_repos": {
-        'question': '17',
+        "question": "17",
+        "query": "Do users contribute across many repos?",
+        "quantify": "Number of unique repos that a particular set of users contributed too",
+        "phenomena": "Persistent minorities",
         "scale": "population",
         "node_type":"user",
         "filters": {"event": contribution_events},
@@ -40,7 +45,10 @@ measurement_params = {
     },
 
     "user_activity_timeline": {
-        "question": '19',
+        "question": "19",
+        "query": "Do rockstars provide sustained contributions to repos? Can we measure their volume of activity?",
+        "quantify": "Daily contribution counts of the user over time. Number of unique repos contributed to by day",
+        "phenomena": "Persistent minorities, Evolution",
         "scale": "node",
         "node_type":"user",
         "filters": {"event": contribution_events},
@@ -52,7 +60,10 @@ measurement_params = {
     },
 
     "user_activity_distribution": {
-        "question": '24a',
+        "question": "24a",
+        "query": "What are the basic characteristics of developers' population?",
+        "quantify": "Distribution over user activity for all users.",
+        "phenomena": "Cascade",
         "scale": "population",
         "node_type":"user",
         "measurement": UserCentricMeasurements.getUserActivityDistribution,
@@ -62,7 +73,10 @@ measurement_params = {
     },
 
     "most_active_users": {
-        "question": '24b',
+        "question": "24b",
+        "query": "What are the basic characteristics of developers' population?",
+        "quantify": "Top K most active users (total number of actions per user)",
+        "phenomena": "Evolution",
         "scale": "population",
         "node_type":"user",
         "measurement": named_partial(UserCentricMeasurements.getMostActiveUsers, k=5000),
@@ -70,16 +84,22 @@ measurement_params = {
     },
 
     "user_popularity": {
-        "question": '25',
+        "question": "25",
+        "query": "Which users are the most popular?",
+        "quantify": "Top K most popular users: #forkEvents + #watchEvents across repos that the users own",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"user",
-        "filters": {"event": popularity_events + ['CreateEvent']},
+        "filters": {"event": popularity_events + ["CreateEvent"]},
         "measurement": named_partial(UserCentricMeasurements.getUserPopularity, k=5000),
         "metrics": {"rbo": named_partial(Metrics.rbo_score, p=0.95)}
     },
 
     "user_gini_coef": {
-        "question": '26a',
+        "question": "26a",
+        "query": "How much disparity is there among users in the activeness of repo contributions?",
+        "quantify": "Gini coefficient for pullRequestEvents, pushEvents and issueEvents",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"user",
         "filters": {"event": contribution_events},
@@ -88,7 +108,10 @@ measurement_params = {
     },
 
     "user_palma_coef": {
-        "question": '26b',
+        "question": "26b",
+        "query": "How much disparity is there among users in the activeness of repo contributions?",
+        "quantify": "Palma ratio for pullRequestEvents, pushEvents and issueEvents",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"user",
         "filters": {"event":contribution_events},
@@ -97,7 +120,10 @@ measurement_params = {
     },
 
     "user_diffusion_delay": {
-        "question": '27',
+        "question": "27",
+        "query": "How soon do users engage with GitHub over time after joining?",
+        "quantify": "Diffusion delay of user actions (excluding Fork and Watch events) since the creation of the user account",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"user",
         "filters": {"event": contribution_events},
@@ -109,7 +135,10 @@ measurement_params = {
 
 repo_measurement_params = {
     "repo_diffusion_delay": {
-        "question": 1,
+        "question": "1",
+        "query": "How long does it take a new repo to become popular?",
+        "quantify": "Distribution over diffusion delays in days/hours for forkEvent and watchEvent (the time between when a repo created and when the subsequent events happen to the repo)",
+        "phenomena": "Cascade",
         "scale": "node",
         "node_type":"repo",
         "filters":{"event": popularity_events},
@@ -120,7 +149,10 @@ repo_measurement_params = {
                     "js_divergence": named_partial(Metrics.js_divergence, discrete=False)},
     },
     "repo_growth": {
-        "question": 2,
+        "question": "2",
+        "query": "How do activity levels on a repo grow and decline over time?",
+        "quantify": "Repo growth: the number of daily contributions to a repo as a function of time",
+        "phenomena": "Cascade, Evolution",
         "scale": "node",
         "node_type":"repo",
         "filters": {"event": contribution_events},
@@ -129,7 +161,10 @@ repo_measurement_params = {
                     "dtw": Metrics.dtw}
     },
     "repo_contributors": {
-        "question": 4,
+        "question": "4",
+        "query": "How many users contribute to a specific repo?",
+        "quantify": "Number of daily unique contributors to a repo as a function of time. Percent of unique contributors who have already contributed at time t measured in hours",
+        "phenomena": "Cascade, Evolution",
         "scale": "node",
         "node_type":"repo",
         "filters": {"event": contribution_events},
@@ -138,57 +173,78 @@ repo_measurement_params = {
                     "dtw": Metrics.dtw}
     },
     "repo_event_distribution_daily": {
-        "question": 5,
+        "question": "5",
+        "query": "What are typical patterns of activity observed for developers on Github?",
+        "quantify": "Distribution of total events daily",
+        "phenomena": "Recurrence",
         "scale": "node",
         "node_type":"repo",
         "measurement": RepoCentricMeasurements.getDistributionOfEvents,
         "metrics": {"js_divergence": named_partial(Metrics.js_divergence, discrete=True)}
     },
     "repo_event_distribution_dayofweek": {
-        "question": 5,
+        "question": "5",
+        "query": "Recurrence",
+        "quantify": "Distribution of total events by day of week",
+        "phenomena": "Recurrence",
         "scale": "node",
         "node_type":"repo",
         "measurement": named_partial(RepoCentricMeasurements.getDistributionOfEvents, weekday=True),
         "metrics": {"js_divergence": named_partial(Metrics.js_divergence, discrete=True)}
     },
     "repo_popularity_distribution": {
-        "question": 12,
+        "question": "12a",
+        "query": "What are the most popular repos in the full population?",
+        "quantify": "Distribution of watchEvents across repos.",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["WatchEvent"]}, 
-        "measurement": named_partial(RepoCentricMeasurements.getDistributionOfEventsByRepo, eventType='WatchEvent'),
+        "measurement": named_partial(RepoCentricMeasurements.getDistributionOfEventsByRepo, eventType="WatchEvent"),
         "metrics": {"js_divergence": named_partial(Metrics.js_divergence, discrete=False),
                     "rmse": Metrics.rmse,
                     "r2": Metrics.r2}
     },
     "repo_popularity_topk": {
-        "question": 12,
+        "question": "12b",
+        "query": "What are the most popular repos in the full population?",
+        "quantify": "Top K of most watched repos.",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["WatchEvent"]}, 
-        "measurement": named_partial(RepoCentricMeasurements.getTopKRepos, k=5000, eventType='WatchEvent'),
+        "measurement": named_partial(RepoCentricMeasurements.getTopKRepos, k=5000, eventType="WatchEvent"),
         "metrics": {"rbo": named_partial(Metrics.rbo_score, p=0.95)}
     },
     "repo_liveliness_distribution": {
-        "question": 13,
+        "question": "13a",
+        "query": "What repos have the highest liveliness?",
+        "quantify": "Distribution of forkEvents across repos",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["ForkEvent"]}, 
-        "measurement": named_partial(RepoCentricMeasurements.getDistributionOfEventsByRepo, eventType='ForkEvent'),
+        "measurement": named_partial(RepoCentricMeasurements.getDistributionOfEventsByRepo, eventType="ForkEvent"),
         "metrics": {"js_divergence": named_partial(Metrics.js_divergence, discrete=False),
                     "rmse": Metrics.rmse,
                     "r2": Metrics.r2}
     },
     "repo_liveliness_topk": {
-        "question": 13,
+        "question": "13b",
+        "query": "Are they different from the most popular repos?",
+        "quantify": "Top K most forked repos",
+        "phenomena": "Cascade, Evolution",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["ForkEvent"]}, 
-        "measurement": named_partial(RepoCentricMeasurements.getTopKRepos, k=5000, eventType='ForkEvent'),
+        "measurement": named_partial(RepoCentricMeasurements.getTopKRepos, k=5000, eventType="ForkEvent"),
         "metrics": {"rbo": named_partial(Metrics.rbo_score, p=0.95)}
     },
     "repo_activity_disparity_gini_fork": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Gini coefficient for forkEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["ForkEvent"]},
@@ -196,7 +252,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_palma_fork": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Palma ratio for forkEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["ForkEvent"]},
@@ -204,7 +263,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_gini_push": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Gini coefficient for pushEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["PushEvent"]},
@@ -212,7 +274,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_palma_push": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Palma ratio for pushEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["PushEvent"]},
@@ -220,7 +285,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_gini_pullrequest": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Gini coefficient for pullRequestEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["PullRequestEvent"]},
@@ -228,7 +296,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_palma_pullrequest": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Palma ratio for pullRequestEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["PullRequestEvent"]},
@@ -236,7 +307,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_gini_issue": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Gini coefficient for issueEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["IssuesEvent"]},
@@ -244,7 +318,10 @@ repo_measurement_params = {
         "metrics": {"absolute_difference": Metrics.absolute_difference}
     },
     "repo_activity_disparity_palma_issue": {
-        "question": 14,
+        "question": "14",
+        "query": "How much disparity is there in activity levels across repos?",
+        "quantify": "Palma ratio for issueEvent",
+        "phenomena": "Cascade, Persistent minorities",
         "scale": "population",
         "node_type":"repo",
         "filters": {"event": ["IssuesEvent"]},
@@ -271,7 +348,7 @@ def prefilter(data, filters):
 
     """
 #     print ("Applying filter " + str(filters) + " to data " + str(data))
-    data.columns = ['time', 'event', 'user', 'repo']
+    data.columns = ["time", "event", "user", "repo"]
     for field, values in filters.items():
         data = data[data[field].isin(values)]
 #     print ("Filtered data: " + str(data))
@@ -306,20 +383,20 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
         nodes = repos
 
     if "filters" in p:
-        ground_truth = prefilter(ground_truth, p['filters'])
-        simulation = prefilter(simulation, p['filters'])
+        ground_truth = prefilter(ground_truth, p["filters"])
+        simulation = prefilter(simulation, p["filters"])
         if ground_truth.empty or simulation.empty:
-            print ('ERROR> pre-filtered ' + ('ground truth' if ground_truth.empty else 'prediction') + ' is empty using filter: '+str(p['filters']))
+            print ("ERROR> pre-filtered " + ("ground truth" if ground_truth.empty else "prediction") + " is empty using filter: "+str(p["filters"]))
             return None, None, None
 
     #for node-level measurements default to the most active node if a 
     #list of nodes is not provided
     if p["scale"] == "node" and nodes is None:
-        nodes = ground_truth.groupby([p["node_type"],'event'])["time"].count().reset_index()
+        nodes = ground_truth.groupby([p["node_type"],"event"])["time"].count().reset_index()
         nodes = nodes.groupby(p["node_type"])["time"].median().sort_values(ascending=False).reset_index()
         nodes = nodes.head(1000)[p["node_type"]]
     elif p["scale"] != "node":
-        nodes = ['']
+        nodes = [""]
 
 
     #for node level measurements iterate over nodes
@@ -341,8 +418,7 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
             gt = ground_truth.copy()
             sim = simulation.copy()
             
-
-        measurement_function = p['measurement']
+        measurement_function = p["measurement"]
 
         empty_df = False
         if len(gt.index) > 0:
@@ -362,7 +438,7 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
             measurement_on_sim = []
 
 
-        metrics = p['metrics']
+        metrics = p["metrics"]
 
         #iterate over the metrics assigned to the measurement
         for m, metric_function in metrics.items():
@@ -382,7 +458,7 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
             
             end_time = time()
             mtrdic["eta"] = pretty_time(end_time-start_time)
-
+            
     return measurement_on_gt, measurement_on_sim, metrics_output
     
 def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, users = None, repos = None):
@@ -398,7 +474,12 @@ def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, user
     users = List of users to use for node-level user measurements.  If None, the most active user from the ground truth data is selected for all user node-level measurements
     repos = List of repos to user for node-level repo measurements. If None, the most active repo from the ground truth data is selected for all repo node-level measurements
     """
-
+    def without_keys(d, keys):
+        """
+        Return a copy of the provided dictionary excluding keys.
+        """
+        return {x: d[x] for x in d if x not in keys}
+    
     results = {}
     start_time = time()
     #select measurements of desired scale and node type
@@ -407,71 +488,94 @@ def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, user
     for measurement_name in measurements:
         gt, sim, metric_results = run_metrics(ground_truth.copy(), simulation.copy(), measurement_name, users=users, repos=repos)
         results[measurement_name] = metric_results
+        results[measurement_name]["metadata"] = without_keys(measurement_params[measurement_name], ["measurement"])
     end_time = time()
-    results['eta'] = pretty_time(end_time-start_time)
+    results["eta"] = pretty_time(end_time-start_time)
 
     return results
 
+def json_convert(obj):
+    if obj == None:
+        return "None"
+    if obj == math.nan:
+        return "NaN"
+    if callable(obj):
+        return obj.__name__
+    if isinstance(obj, float):
+        return str(obj)
+    if isinstance(obj, (list, tuple)):
+        return [json_convert(item) for item in obj]
+    if isinstance(obj, dict):
+        return {json_convert(key):json_convert(value) for key, value in obj.items()}
+    return obj
 
-# def load_data():
-#     df = pd.read_csv('data/time-events-20170830-20170831v2.csv')
-#     df = df.reset_index()
-# 
-#     df1 = df.sample(frac=0.6, replace=False)
-#     df2 = df.sample(frac=0.6, replace=False)
-# 
-#     print(df1)
-# 
-#     ground_truth = df1.copy()
-#     simulation = df2.copy()
-#     return ground_truth, simulation
-
-def main():
-
-    ###READ IN ground_truth and simulation here
-    #Data should be in 4-column format: time, event, user, repo
-    print ('Parsing simulated and groundtruth events from .csv...')
-    start_time = time()
-    simulation = pd.read_csv('data/2017_0817-31_pointprocess_poisson_events.txt', sep=' ', names=['time','event','user','repo'])
-    ground_truth = pd.read_csv('data/time-events-20170817-20170831_v2.csv', names=['time','event','user','repo'])
-#    simulation = pd.read_csv('data/2017_08_1731_user_centric_events.csv', names=['time','event','user','repo'])
-    print ('Elapsed time: ' + pretty_time(time() - start_time))
-    print ('Starting evaluation...')
-    #run individual metric
-#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "repo_contributors")
-#     pprint.pprint(metric)
-
-    #run individual metric
+class EvaluationEngine:
+    """
+    Engine loading groundtruth and predicted events, processing all metrics evaluations.
+    """
+    def __init__(self, gt_file, sim_file):
+        """
+        Load event files
+        Data should be in 4-column format: time, event, user, repo
+        @param sim_file:  predicted event file in .csv format 
+        @param gt_file: ground_truth event file in .csv format 
+        """
+        if not gt_file or not sim_file:
+            self.simulation = self.ground_truth = {}
+            return
+        
+        print ("Parsing simulated and groundtruth events from .csv...")
+        print ("GT: " + gt_file)
+        print ("SIM: " + sim_file)
+        start_time = time()
+        self.simulation = pd.read_csv(sim_file,
+                             names=["time","event","user","repo"])
     
-#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_unique_repos")
-#     pprint.pprint(metric)
-#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline")
-#     pprint.pprint(metric)
-#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "most_active_users")
-#     pprint.pprint(metric)
-    #gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline")
-    # pprint.pprint(metric)
+        self.ground_truth = pd.read_csv(gt_file,
+                               names=["time","event","user","repo"])
+        print ("Elapsed time: " + pretty_time(time() - start_time))
 
-
-    #run individual metric for specific users for the node-level measurement
-#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline",users=['PeZv4Yha0B_17dV8SAioFA'])
-#     pprint.pprint(metric)
-
-
-    #run all assigned metrics
-    metrics = run_all_metrics(ground_truth,simulation)
-    pprint.pprint(metrics)
-
-
-    #run all assigned population-level metrics 
-#     metrics = run_all_metrics(ground_truth,simulation,scale="population")
-#     pprint.pprint(metrics)
-
-
-    #run all assigned repo-centric metrics with specific nodes for the node-level measurements
-#     metrics = run_all_metrics(ground_truth, simulation, node_type="repo", repos=['CfRdoji5OZvcxhdWLNnk2g','wMdyaRLEouKNYDekTZfsPQ','lVDWc0aTq3dTwOf27RWYAw'])
-#     pprint.pprint(metrics)
-
+    def evaluate (self, json_output_file):
+        """
+        Run all metrics evaluation methods against the loaded ground_truth and simulation
+        """
+        if self.ground_truth.empty or self.simulation.empty:
+            return
+        print ("Starting evaluation...")
+        
+        # Single metrics
+        # gt_measurement, sim_measurement, metrics = run_metrics(self.ground_truth, self.simulation, "repo_contributors")
+        
+        # Run all metrics
+        metrics = run_all_metrics(self.ground_truth, self.simulation)
+        
+        # Print and save results to output json file
+        res = json.dumps(json_convert(metrics), indent=2, sort_keys=True)
+        if res:
+            print(res)
+            if json_output_file:
+                with open(json_output_file, 'w') as f:
+                    print('Saving results to file '+json_output_file)
+                    f.write(res)
+        
+        
+def main():
+    parser = argparse.ArgumentParser(description='Run SocialSim Metrics evaluation functions')
+    parser.add_argument('-s', '--simulated_events', dest='sim', 
+                        help='path to the .csv file containing predicted events')
+    parser.add_argument('-g', '--groundtruth_events', dest='gt',
+                        help='path to the .csv file containing the events to use as ground_truth')
+    parser.add_argument('-o', '--output_json_file', dest='json_output_file', default='eval_output.json',
+                        help='path to the .json output file to store evaluation results')
+    
+    
+    args = parser.parse_args()
+    
+    if args.sim and args.gt:
+        engine = EvaluationEngine(args.gt, args.sim)
+        engine.evaluate(args.json_output_file)
+    else:
+        print (parser.print_help())
 
 if __name__ == "__main__":
     main()
