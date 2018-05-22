@@ -3,15 +3,23 @@ from functools import partial, update_wrapper
 import Metrics
 import RepoCentricMeasurements
 import UserCentricMeasurements
-#from load_data import load_data
-
 import pprint
+from time import time
 
 def named_partial(func, *args, **kwargs):
     partial_func = partial(func, *args, **kwargs)
     update_wrapper(partial_func, func)
     return partial_func
 
+def pretty_time(t):
+    """takes a time, in seconds, and formats it for display"""
+    m, s = divmod(t, 60)
+    h, m = divmod(m, 60)
+    s = round(s) #Rounds seconds to the nearest whole number
+    h = str(h).rjust(2,'0') #convert to strings,
+    m = str(m).rjust(2,'0') #adding 0 if necessary to make 
+    s = str(s).rjust(2,'0') #each one two digits long
+    return "{}h{}m{}s".format(h,m,s)
 
 contribution_events = ["PullRequestEvent", "PushEvent", "IssuesEvent","IssueCommentEvent","PullRequestReviewComment","CommitCommentEvent","CreateEvent"]
 popularity_events = ["WatchEvent", "ForkEvent"]
@@ -262,12 +270,12 @@ def prefilter(data, filters):
     data - The filtered data frame
 
     """
-
+#     print ("Applying filter " + str(filters) + " to data " + str(data))
     data.columns = ['time', 'event', 'user', 'repo']
     for field, values in filters.items():
         data = data[data[field].isin(values)]
+#     print ("Filtered data: " + str(data))
     return data
-
 
 def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None):
 
@@ -286,32 +294,34 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
     measurement_on_sim - Output of the measurement for the simulation data
     metrics_output - Dictionary containing metric results for each metric assigned to the measurement   
     """
-
+    metrics_output = {}
+    measurement_on_gt = measurement_on_sim = None
+ 
+    start_time = time()
     p = measurement_params[measurement_name]
-
+    print ("<-- " + str(p["question"]))
     if p["node_type"] == "user":
         nodes = users
     else:
         nodes = repos
 
-
     if "filters" in p:
         ground_truth = prefilter(ground_truth, p['filters'])
         simulation = prefilter(simulation, p['filters'])
-
+        if ground_truth.empty or simulation.empty:
+            print ('ERROR> pre-filtered ' + ('ground truth' if ground_truth.empty else 'prediction') + ' is empty using filter: '+str(p['filters']))
+            return None, None, None
 
     #for node-level measurements default to the most active node if a 
     #list of nodes is not provided
     if p["scale"] == "node" and nodes is None:
         nodes = ground_truth.groupby([p["node_type"],'event'])["time"].count().reset_index()
         nodes = nodes.groupby(p["node_type"])["time"].median().sort_values(ascending=False).reset_index()
-        nodes = nodes.head(1)[p["node_type"]]
+        nodes = nodes.head(1000)[p["node_type"]]
     elif p["scale"] != "node":
         nodes = ['']
 
 
-    metrics_output = {}
- 
     #for node level measurements iterate over nodes
     for node in nodes:
         
@@ -322,7 +332,11 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
             #select data for individual node
             filter = {p["node_type"]:[node]}
             gt = prefilter(ground_truth, filter)
+            if gt.empty:
+                print ("Groundtruth not matching filter "+str(filter))
             sim = prefilter(simulation, filter)
+            if sim.empty:
+                print ("Groundtruth not matching filter "+str(sim))
         else:
             gt = ground_truth.copy()
             sim = simulation.copy()
@@ -354,19 +368,23 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
         for m, metric_function in metrics.items():
             print("Calculating {} for {}".format(metric_function.__name__, measurement_function.__name__))
             if not empty_df:
-                metric = metric_function(measurement_on_gt, measurement_on_sim)
+                metric = metric_function(measurement_on_gt, measurement_on_sim)   
             else:
                 metric = None
 
+            mtrdic = None
             if p["scale"] == "node":
-                metrics_output[node][m] = metric
+                mtrdic = metrics_output[node]
             else:
-                metrics_output[m] = metric
+                mtrdic = metrics_output
                 
+            mtrdic[m] = metric 
+            
+            end_time = time()
+            mtrdic["eta"] = pretty_time(end_time-start_time)
 
     return measurement_on_gt, measurement_on_sim, metrics_output
-
-
+    
 def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, users = None, repos = None):
 
     """
@@ -382,38 +400,62 @@ def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, user
     """
 
     results = {}
+    start_time = time()
     #select measurements of desired scale and node type
     measurements = [m for m, m_info in measurement_params.items() if (scale is None or m_info["scale"] == scale) and (node_type is None or m_info["node_type"] == node_type)] 
 
     for measurement_name in measurements:
         gt, sim, metric_results = run_metrics(ground_truth.copy(), simulation.copy(), measurement_name, users=users, repos=repos)
         results[measurement_name] = metric_results
+    end_time = time()
+    results['eta'] = pretty_time(end_time-start_time)
+
     return results
 
+
+# def load_data():
+#     df = pd.read_csv('data/time-events-20170830-20170831v2.csv')
+#     df = df.reset_index()
+# 
+#     df1 = df.sample(frac=0.6, replace=False)
+#     df2 = df.sample(frac=0.6, replace=False)
+# 
+#     print(df1)
+# 
+#     ground_truth = df1.copy()
+#     simulation = df2.copy()
+#     return ground_truth, simulation
 
 def main():
 
     ###READ IN ground_truth and simulation here
     #Data should be in 4-column format: time, event, user, repo
-    #ground_truth, simulation = load_data()
-
-    ground_truth.columns = ['time','event','user','repo']
-    simulation.columns = ['time','event','user','repo']
-
+    print ('Parsing simulated and groundtruth events from .csv...')
+    start_time = time()
+    simulation = pd.read_csv('data/2017_0817-31_pointprocess_poisson_events.txt', sep=' ', names=['time','event','user','repo'])
+    ground_truth = pd.read_csv('data/time-events-20170817-20170831_v2.csv', names=['time','event','user','repo'])
+#    simulation = pd.read_csv('data/2017_08_1731_user_centric_events.csv', names=['time','event','user','repo'])
+    print ('Elapsed time: ' + pretty_time(time() - start_time))
+    print ('Starting evaluation...')
+    #run individual metric
+#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "repo_contributors")
+#     pprint.pprint(metric)
 
     #run individual metric
-    gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "repo_contributors")
-    pprint.pprint(metric)
-
-
-    #run individual metric
-    gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline")
-    pprint.pprint(metric)
+    
+#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_unique_repos")
+#     pprint.pprint(metric)
+#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline")
+#     pprint.pprint(metric)
+#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "most_active_users")
+#     pprint.pprint(metric)
+    #gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline")
+    # pprint.pprint(metric)
 
 
     #run individual metric for specific users for the node-level measurement
-    gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline",users=['PeZv4Yha0B_17dV8SAioFA'])
-    pprint.pprint(metric)
+#     gt_measurement, sim_measurement, metric = run_metrics(ground_truth, simulation, "user_activity_timeline",users=['PeZv4Yha0B_17dV8SAioFA'])
+#     pprint.pprint(metric)
 
 
     #run all assigned metrics
@@ -422,13 +464,13 @@ def main():
 
 
     #run all assigned population-level metrics 
-    metrics = run_all_metrics(ground_truth,simulation,scale="population")
-    pprint.pprint(metrics)
+#     metrics = run_all_metrics(ground_truth,simulation,scale="population")
+#     pprint.pprint(metrics)
 
 
     #run all assigned repo-centric metrics with specific nodes for the node-level measurements
-    metrics = run_all_metrics(ground_truth,simulation,node_type="repo",repos=['3mGSybhub0IE-iZ0nOcOmg/fxFnpSLfvseMwBr1Z3NPkw','B8ZJ9zQBfx4zJyuG6QCWcQ/73uOGPnes5YM9RW6Bst3GQ'])
-    pprint.pprint(metrics)
+#     metrics = run_all_metrics(ground_truth, simulation, node_type="repo", repos=['CfRdoji5OZvcxhdWLNnk2g','wMdyaRLEouKNYDekTZfsPQ','lVDWc0aTq3dTwOf27RWYAw'])
+#     pprint.pprint(metrics)
 
 
 if __name__ == "__main__":
