@@ -394,7 +394,7 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
     if p["scale"] == "node" and nodes is None:
         nodes = ground_truth.groupby([p["node_type"],"event"])["time"].count().reset_index()
         nodes = nodes.groupby(p["node_type"])["time"].median().sort_values(ascending=False).reset_index()
-        nodes = nodes.head(1000)[p["node_type"]]
+        nodes = nodes.head(100)[p["node_type"]]
     elif p["scale"] != "node":
         nodes = [""]
 
