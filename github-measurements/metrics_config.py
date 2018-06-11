@@ -327,6 +327,27 @@ repo_measurement_params = {
         "filters": {"event": ["IssuesEvent"]},
         "measurement": RepoCentricMeasurements.getPalmaCoef,
         "metrics": {"absolute_difference": Metrics.absolute_difference}
+    },
+    "community_activity_disparity_gini_pull": {
+        "question": "6",
+        "query": "How much disparity is there in activity levels across repos in particular communities",
+        "quantify": "Gini coefficient for pullEvent",
+        "phenomena": "",
+        "scale": "Community",
+        "node_type": "repo",
+        "measurement": RepoCentricMeasurements.getGiniCoef,
+        "metrics": {"absolute_difference": Metrics.absolute_difference}
+    },
+    "community_activity_disparity_palma_pull": {
+        "question": "6",
+        "query": "How much disparity is there in activity levels across repos in particular communities",
+        "quantify": "Palma ratio for pullEvent",
+        "phenomena": "",
+        "scale": "Community",
+        "node_type": "repo",
+        "filters": {"event": ["PullEvent"]},
+        "measurement": RepoCentricMeasurements.getPalmaCoef,
+        "metrics": {"absolute_difference": Metrics.absolute_difference}
     }
 }
 
@@ -354,7 +375,7 @@ def prefilter(data, filters):
 #     print ("Filtered data: " + str(data))
     return data
 
-def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None):
+def run_metrics(ground_truth, simulation, measurement_name, community_repos=None,users=None,repos=None):
 
     """
     Run all of the assigned metrics for a given measurement.
@@ -388,6 +409,9 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
         if ground_truth.empty or simulation.empty:
             print ("ERROR> pre-filtered " + ("ground truth" if ground_truth.empty else "prediction") + " is empty using filter: "+str(p["filters"]))
             return None, None, None
+
+    if community_repos:
+        ground_truth = prefilter(ground_truth, {"repo": community_repos})
 
     #for node-level measurements default to the most active node if a 
     #list of nodes is not provided
@@ -461,7 +485,7 @@ def run_metrics(ground_truth, simulation, measurement_name,users=None,repos=None
             
     return measurement_on_gt, measurement_on_sim, metrics_output
     
-def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, users = None, repos = None):
+def run_all_metrics(ground_truth, simulation, community_info=None, scale=None, node_type = None, users = None, repos = None):
 
     """
     Calculate metrics for multiple measurements.
@@ -483,12 +507,20 @@ def run_all_metrics(ground_truth, simulation, scale=None, node_type = None, user
     results = {}
     start_time = time()
     #select measurements of desired scale and node type
-    measurements = [m for m, m_info in measurement_params.items() if (scale is None or m_info["scale"] == scale) and (node_type is None or m_info["node_type"] == node_type)] 
+    measurements = [m for m, m_info in measurement_params.items() if (scale is None or m_info["scale"] == scale) and \
+                    (node_type is None or m_info["node_type"] == node_type)]
 
     for measurement_name in measurements:
-        gt, sim, metric_results = run_metrics(ground_truth.copy(), simulation.copy(), measurement_name, users=users, repos=repos)
-        results[measurement_name] = metric_results
-        results[measurement_name]["metadata"] = without_keys(measurement_params[measurement_name], ["measurement"])
+        if community_info and measurement_params[measurement_name]["scale"] == "Community":
+            for name in community_info:
+                gt, sim, metric_results = run_metrics(ground_truth.copy(), simulation.copy(), measurement_name,
+                                                      community_repos = community_info[name], users=users, repos=repos)
+                results[measurement_name][name] = metric_results
+                results[measurement_name][name]["metadata"] = without_keys(measurement_params[measurement_name], ["measurement"])
+        elif measurement_params[measurement_name]["scale"] != "Community":
+            gt, sim, metric_results = run_metrics(ground_truth.copy(), simulation.copy(), measurement_name, users=users, repos=repos)
+            results[measurement_name] = metric_results
+            results[measurement_name]["metadata"] = without_keys(measurement_params[measurement_name], ["measurement"])
     end_time = time()
     results["eta"] = pretty_time(end_time-start_time)
 
@@ -513,7 +545,7 @@ class EvaluationEngine:
     """
     Engine loading groundtruth and predicted events, processing all metrics evaluations.
     """
-    def __init__(self, gt_file, sim_file):
+    def __init__(self, gt_file, sim_file, cn_file = None):
         """
         Load event files
         Data should be in 4-column format: time, event, user, repo
@@ -533,7 +565,11 @@ class EvaluationEngine:
     
         self.ground_truth = pd.read_csv(gt_file,
                                names=["time","event","user","repo"])
-        print ("Elapsed time: " + pretty_time(time() - start_time))
+        if cn_file:
+            with open(cn_file, 'r') as file:
+                self.community_info = json.load(file)
+
+        print("Elapsed time: " + pretty_time(time() - start_time))
 
     def evaluate (self, json_output_file):
         """
@@ -547,8 +583,11 @@ class EvaluationEngine:
         # gt_measurement, sim_measurement, metrics = run_metrics(self.ground_truth, self.simulation, "repo_contributors")
         
         # Run all metrics
-        metrics = run_all_metrics(self.ground_truth, self.simulation)
-        
+        if self.community_names:
+            metrics = run_all_metrics(self.ground_truth, self.simulation, self.community_info)
+        else:
+            metrics = run_all_metrics(self.ground_truth, self.simulation)
+
         # Print and save results to output json file
         res = json.dumps(json_convert(metrics), indent=2, sort_keys=True)
         if res:
@@ -565,14 +604,16 @@ def main():
                         help='path to the .csv file containing predicted events')
     parser.add_argument('-g', '--groundtruth_events', dest='gt',
                         help='path to the .csv file containing the events to use as ground_truth')
+    parser.add_argument('-c', '--community_info', dest='cn',
+                        help='path to the .json file containing the community names use as community_names')
     parser.add_argument('-o', '--output_json_file', dest='json_output_file', default='eval_output.json',
                         help='path to the .json output file to store evaluation results')
-    
+
     
     args = parser.parse_args()
     
     if args.sim and args.gt:
-        engine = EvaluationEngine(args.gt, args.sim)
+        engine = EvaluationEngine(args.gt, args.sim, args.cn)
         engine.evaluate(args.json_output_file)
     else:
         print (parser.print_help())
