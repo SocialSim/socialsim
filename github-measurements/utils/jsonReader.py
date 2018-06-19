@@ -14,17 +14,17 @@ DATE OBJECT USER EVENT_TYPE
 INPUT_DIR = '../../leidos_data/Events'
 DATE_START_YYYYMMDD = '20170817'
 DATE_END_YYYYMMDD = '20170831'
-OUTPUT_FILE = 'time-events-' + DATE_START_YYYYMMDD + '-' + DATE_END_YYYYMMDD + '_v2.csv'
+OUTPUT_FILE = 'gt-time-events-' + DATE_START_YYYYMMDD + '-' + DATE_END_YYYYMMDD + '.csv'
 
 def extractEvent(record):
 
-    if "id_h" in record["actor"]:
-        userId = record["actor"]["id_h"]
+    if "login_h" in record["actor"]:
+        userId = record["actor"]["login_h"]
     else:
         userId = "None"
 
-    if "id_h" in record["repo"]:
-        objectId = record["repo"]["id_h"]
+    if "name_h" in record["repo"]:
+        objectId = record["repo"]["name_h"]
     else:
         objectId = "None"
     eventTime = record["created_at"].replace('Z', ' ').replace('T', ' ')
