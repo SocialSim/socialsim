@@ -1,0 +1,47 @@
+(dp0
+VSwift is a modern programming language focused on safety, performance, and expressivity.
+p1
+(lp2
+VpVLHy2YB4Tv_y-1jqy0mog/7kfQmMBKLzblCrzllXUMOw
+p3
+aVSfYFpJPt9stPkH4kynqB6w/2PNzlz8DjKABfoBRpcQ_9g
+p4
+aV7Lh9MScWf3oyL86Dan2H2A/BcTQ6VuqBhN0xae6Et1OSg
+p5
+aVJ6A896b-FCUT8mEihkZShQ/bF9SDY8stPjiIRd28E04Cw
+p6
+aVK2HvuWKj8HgyGp5rAJzXhg/FJwOgboBW1LiHVr-jcESfA
+p7
+aVgYmm2IoY94CTrSZlLtu3ig/gYmm2IoY94CTrSZlLtu3ig
+p8
+asVPython is a dynamically typed programming language.
+p9
+(lp10
+VYSmxvCr5V2FICMIX24OhdQ/zGGiJTpBOmj1rMx8SNMKKA
+p11
+aVWlRKHBT-MTwyRcMmeikrjg/wAjhABLyLJc_yQN0IrhTGQ
+p12
+aVbVigZ7QSRGEnB8hDuFdpkQ/9X2R1fPwVwVKSQjhIO9Wsw
+p13
+aVGUfIP4xtWIUD9cmW8cpeiA/jZcQGZ6upu0kSj8_CCmYVw
+p14
+aVh3KrCt3ydOJkpkjewK4I9Q/4_oKFdxaUQVE60wZTBDDfQ
+p15
+aVqiW0PrOlacVtWlM-N3C4ng/kYx_sP9B1675SNLmp3G2yg
+p16
+asViOS is the operating system for Apple's mobile products.
+p17
+(lp18
+VYzu7f5OAZDuwq8shWPzy6A/EkK-WZC1KDh6-QON7XW1SQ
+p19
+aV7Lh9MScWf3oyL86Dan2H2A/BcTQ6VuqBhN0xae6Et1OSg
+p20
+aVK2HvuWKj8HgyGp5rAJzXhg/FJwOgboBW1LiHVr-jcESfA
+p21
+aV_8zFKzk9aps2brf-Pf-atQ/vtuQKlSsRqf5rvxonbooow
+p22
+aVWK5LyFVu-vr-23ZMKrDNiw/UE95ynbfASq8xlxMFziRuA
+p23
+aVPuAWU_eUnGPFW5x-ZZkbTA/R42ASCCH5-8iLRfeLLPClw
+p24
+as.
