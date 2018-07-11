@@ -640,11 +640,20 @@ class EvaluationEngine:
         print ("GT: " + gt_file)
         print ("SIM: " + sim_file)
         start_time = time()
+
+        user_ids = ['RIH-7636kqldbT3q-mKVNg','RNCPDvxzygRe8m7ENWg9Kw','ZjuuEc-QjH5b4E3FtQencw','_Qc4tzHyLBsDFu-q4HpVnw']
+        repo_ids = ['sG2sD5eAH3ojlZYCsX3hJg/sG2sD5eAH3ojlZYCsX3hJg','DXUQl8d5BBrhwGo5eU5d5Q/iS-SlfdKFS3N_iSpaYLX3Q',
+                    'x9BrCoUrzYi11O-5Y-tFzg/2c9v3EnK2YrZcVgb0shFyQ','2-scMrZv13F95YPZmfieww/1EaArWHXzf8AhyhA34CX6w']
+
         self.simulation = Measurements(pd.read_csv(sim_file,
-                                      names=["time","event","user","repo"]))
+                                      names=["time","event","user","repo"]),
+                                       interested_users=user_ids,
+                                       interested_repos=repo_ids)
 
         self.ground_truth = Measurements(pd.read_csv(gt_file,
-                                        names=["time","event","user","repo"]))
+                                        names=["time","event","user","repo"]),
+                                         interested_users=user_ids,
+                                         interested_repos=repo_ids)
         print ("Elapsed time: " + pretty_time(time() - start_time))
 
     def evaluate (self, json_output_file):
