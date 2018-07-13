@@ -155,7 +155,7 @@ class CommunityCentricMeasurements():
 
         if communities:
             return self.runCommunities(self.getNumUserActionsHelper,unit,eventType)
-	else:
+        else:
             return self.getNumUserActionsHelper(self.main_df,unit,eventType)
 
     '''

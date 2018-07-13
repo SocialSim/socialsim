@@ -78,11 +78,14 @@ class TEMeasurements():
             if (nodeTEVal > 0.0):
                 allNodes[actorsSrc[idxS]] = nodeTEVal
 
-        topEdges = sorted(allEdges.items(), key=lambda (k,v): v, reverse = True)
+        # topEdges = sorted(allEdges.items(), key=lambda (k,v): v, reverse = True)
+        topEdges = sorted(allEdges.items(), key=lambda kv: kv[1], reverse = True)
+        
         if (len(topEdges) > kE):
             topEdges = topEdges[:kE]
 
-        topNodes = sorted(allNodes.items(), key=lambda (k,v): v, reverse = True)
+        # topNodes = sorted(allNodes.items(), key=lambda (k,v): v, reverse = True)
+        topNodes = sorted(allNodes.items(), key=lambda kv: kv[1], reverse = True)
         if (len(topNodes) > kN):
             topNodes = topNodes[:kN]
         

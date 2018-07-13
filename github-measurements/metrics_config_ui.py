@@ -483,7 +483,7 @@ te_measurement_params = {
 
 measurement_params.update(repo_measurement_params)
 measurement_params.update(community_measurement_params)
-# measurement_params.update(te_measurement_params)
+measurement_params.update(te_measurement_params)
 
 
 def run_metrics(ground_truth, simulation, measurement_name,measurement_on_gt=None):
